@@ -1,0 +1,80 @@
+# Starting from NVIDIA PyTorch/Tensorflow NGC Container
+# https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch
+#
+FROM nvcr.io/nvidia/pytorch:22.12-py3
+# FROM nvcr.io/nvidia/tensorflow:22.12-tf2-py3
+
+# install some useful tools
+RUN \
+    export DEBIAN_FRONTEND=noninteractive \
+    && apt-get update -y -q \
+    && apt-get install -y \
+    aptitude \
+    automake \
+    bash-completion \
+    bison \
+    build-essential \
+    cmake \
+    dnsutils \
+    elinks \
+    emacs-nox emacs-goodies-el \
+    fish \
+    flex \
+    git \
+    htop \
+    iperf3 \
+    iproute2 \
+    iputils-ping \
+    less \
+    libtool \
+    libopencv-dev \
+    mc \
+    nload \
+    nmon \
+    psutils \
+    source-highlight \
+    ssh \
+    sudo \
+    tmux \
+    vim \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+
+########################################################################
+# Download the Imagenette dataset
+########################################################################
+WORKDIR /tmp
+RUN \
+    wget -nv 'https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-320.tgz' \
+    && tar xfz 'imagenette2-320.tgz' \
+    && rm 'imagenette2-320.tgz'
+
+########################################################################
+# install deeplake + some other python libraries
+########################################################################
+RUN \
+    pip3 install --upgrade --no-cache matplotlib pandas clize \
+      opencv-python tqdm tifffile pyyaml deeplake
+
+########################################################################
+# run as user
+########################################################################
+RUN \
+    useradd -m -G sudo -s /usr/bin/fish -p '*' user \
+    && sed -i 's/ALL$/NOPASSWD:ALL/' /etc/sudoers
+
+COPY . /home/user/deeplake-test
+
+RUN chown -R user.user '/home/user/deeplake-test'
+# create data dir
+RUN mkdir /data
+RUN chown user.user '/data'
+# install plugin
+WORKDIR /home/user/deeplake-test
+USER user
+
+# Fix for error given by "from nvidia.dali.plugin.pytorch import DALIGenericIterator"
+# - https://forums.developer.nvidia.com/t/issues-building-docker-image-from-ngc-container-nvcr-io-nvidia-pytorch-22-py3/209034
+ENV PATH="${PATH}:/opt/hpcx/ompi/bin"
+ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/opt/hpcx/ompi/lib"

@@ -14,9 +14,9 @@
 
 from clize import run
 import deeplake
-from torchvision import datasets, transforms, models
 from tqdm import tqdm, trange
 from IPython import embed
+import tensorflow as tf
 
 
 def ingest_dataset(
@@ -60,48 +60,19 @@ def open_dataset(
     return ds
 
 
-def loop_read_pytorch(
+def loop_read_tensorflow(
     ds,
     epochs=3,
-    num_workers=8,
-    shuffle=False,
 ):
-    dp = ds.pytorch(
-        batch_size=512,
-        num_workers=num_workers,
-        transform={"images": None, "labels": None},
-        decode_method={"images": "tobytes"},  # do not decode
-        shuffle=shuffle,
-    )
+    bs = 512
+    sz = len(ds) // bs
+    dt = ds.tensorflow(tobytes=True).batch(bs).prefetch(tf.data.AUTOTUNE)
     for _ in range(epochs):
-        for x in tqdm(dp):
-            d = x["images"]
-
-
-def loop_read_tensors(
-    ds,
-    epochs=3,
-    num_workers=8,
-    shuffle=False,
-):
-    tform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.repeat(int(3 / x.shape[0]), 1, 1)),
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-    )
-    dp = ds.pytorch(
-        batch_size=512,
-        num_workers=num_workers,
-        transform={"images": tform, "labels": None},
-        shuffle=shuffle,
-    )
-    for _ in range(epochs):
-        for x in tqdm(dp):
-            d = x["images"]
+        cow = 0
+        for x in tqdm(dt, total=sz):
+            cow += 1
+            if cow == sz:
+                break
 
 
 def loop_read_raw(ds, epochs=3):
@@ -117,8 +88,8 @@ def test(
     aws_secret_access_key=None,
     endpoint_url=None,
     epochs=3,
-    tens_workers=32,
-    torch_workers=8,
+    tens_workers=16,
+    torch_workers=4,
     shuffle=False,
 ):
     ds = open_dataset(
@@ -127,17 +98,9 @@ def test(
         aws_secret_access_key=aws_secret_access_key,
         endpoint_url=endpoint_url,
     )
-    loop_read_raw(ds, epochs=epochs)
-    loop_read_pytorch(
+    # loop_read_raw(ds, epochs=epochs)
+    loop_read_tensorflow(
         ds,
-        num_workers=torch_workers,
-        shuffle=shuffle,
-        epochs=epochs,
-    )
-    loop_read_tensors(
-        ds,
-        num_workers=tens_workers,
-        shuffle=shuffle,
         epochs=epochs,
     )
 
