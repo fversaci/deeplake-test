@@ -71,11 +71,12 @@ def loop_read_pytorch(
         num_workers=num_workers,
         transform={"images": None, "labels": None},
         decode_method={"images": "tobytes"},  # do not decode
+        collate_fn=lambda x: x,
         shuffle=shuffle,
     )
     for _ in range(epochs):
         for x in tqdm(dp):
-            d = x["images"]
+            ...
 
 
 def loop_read_tensors(
@@ -88,8 +89,10 @@ def loop_read_tensors(
         [
             transforms.ToTensor(),
             transforms.Lambda(lambda x: x.repeat(int(3 / x.shape[0]), 1, 1)),
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
+            transforms.RandomResizedCrop(
+                224, scale=(0.1, 1.0), ratio=(0.8, 1.25), antialias=True
+            ),
+            transforms.RandomHorizontalFlip(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
     )
@@ -98,6 +101,7 @@ def loop_read_tensors(
         num_workers=num_workers,
         transform={"images": tform, "labels": None},
         shuffle=shuffle,
+        decode_method={"images": "numpy"},
     )
     for _ in range(epochs):
         for x in tqdm(dp):
