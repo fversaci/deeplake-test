@@ -19,29 +19,6 @@ from tqdm import tqdm, trange
 from IPython import embed
 
 
-def ingest_dataset(
-    src,
-    dst,
-    *,
-    aws_access_key_id=None,
-    aws_secret_access_key=None,
-    endpoint_url=None,
-    overwrite=False,
-    num_workers=8,
-):
-    if aws_access_key_id and aws_secret_access_key and endpoint_url:
-        creds = {
-            "aws_access_key_id": aws_access_key_id,
-            "aws_secret_access_key": aws_secret_access_key,
-            "endpoint_url": endpoint_url,
-        }
-    else:
-        creds = None
-    ds = deeplake.ingest_classification(
-        src, dst, num_workers=num_workers, dest_creds=creds, overwrite=overwrite
-    )
-
-
 def open_dataset(
     src,
     aws_access_key_id,
@@ -58,6 +35,12 @@ def open_dataset(
         creds = None
     ds = deeplake.load(src, creds=creds)
     return ds
+
+
+def loop_read_raw(ds, epochs=3):
+    for _ in range(epochs):
+        for x in tqdm(ds.tensors["images"]):
+            d = x.tobytes()
 
 
 def loop_read_pytorch(
@@ -106,12 +89,6 @@ def loop_read_tensors(
     for _ in range(epochs):
         for x in tqdm(dp):
             d = x["images"]
-
-
-def loop_read_raw(ds, epochs=3):
-    for _ in range(epochs):
-        for x in tqdm(ds.tensors["images"]):
-            d = x.tobytes()
 
 
 def test(

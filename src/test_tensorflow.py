@@ -19,29 +19,6 @@ from IPython import embed
 import tensorflow as tf
 
 
-def ingest_dataset(
-    src,
-    dst,
-    *,
-    aws_access_key_id=None,
-    aws_secret_access_key=None,
-    endpoint_url=None,
-    overwrite=False,
-    num_workers=8,
-):
-    if aws_access_key_id and aws_secret_access_key and endpoint_url:
-        creds = {
-            "aws_access_key_id": aws_access_key_id,
-            "aws_secret_access_key": aws_secret_access_key,
-            "endpoint_url": endpoint_url,
-        }
-    else:
-        creds = None
-    ds = deeplake.ingest_classification(
-        src, dst, num_workers=num_workers, dest_creds=creds, overwrite=overwrite
-    )
-
-
 def open_dataset(
     src,
     aws_access_key_id,
@@ -60,6 +37,12 @@ def open_dataset(
     return ds
 
 
+def loop_read_raw(ds, epochs=3):
+    for _ in range(epochs):
+        for x in tqdm(ds.tensors["images"]):
+            d = x.tobytes()
+
+
 def loop_read_tensorflow(
     ds,
     epochs=3,
@@ -75,12 +58,6 @@ def loop_read_tensorflow(
                 break
 
 
-def loop_read_raw(ds, epochs=3):
-    for _ in range(epochs):
-        for x in tqdm(ds.tensors["images"]):
-            d = x.tobytes()
-
-
 def test(
     src,
     *,
@@ -88,8 +65,6 @@ def test(
     aws_secret_access_key=None,
     endpoint_url=None,
     epochs=3,
-    tens_workers=16,
-    torch_workers=4,
     shuffle=False,
 ):
     ds = open_dataset(
