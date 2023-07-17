@@ -14,9 +14,6 @@
 
 from clize import run
 import deeplake
-from torchvision import datasets, transforms, models
-from tqdm import tqdm, trange
-from IPython import embed
 
 
 def ingest_dataset(
