@@ -120,3 +120,8 @@ python3 test_pytorch.py s3://imagenet/train \
   --aws-access-key-id=user --aws-secret-access-key=password \
   --epochs=3 --shuffle=True
 ```
+
+## License
+
+This repository is licensed under the under the Apache License,
+Version 2.0. See LICENSE for further details.
