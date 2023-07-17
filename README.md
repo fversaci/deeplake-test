@@ -17,7 +17,7 @@ $ docker run --rm -it --cap-add=sys_admin deeplake-test:pytorch
 
 Similarly:
 ```bash
-$ docker build -t deeplake-test:pytorch -f Dockerfile.tensorflow .
+$ docker build -t deeplake-test:tensorflow -f Dockerfile.tensorflow .
 $ docker run --rm -it --cap-add=sys_admin deeplake-test:tensorflow
 ```
 
@@ -53,13 +53,13 @@ python3 ingest_data.py /data/imagenet/train/ s3://imagenet/train \
 We have implemented three simple stress tests that try to read as many
 images as possible from the DeepLake dataset.
 
-1. [`loop_read_raw`](src/test_pytorch.py:L39) Reads the raw dataset,
+1. [`loop_read_raw`](src/test_pytorch.py#L39) Reads the raw dataset,
    without decoding the images, straight from the DeepLake dataset
    variable.
-2. [`loop_read_pytorch`](src/test_pytorch.py:L45) Reads the raw
+2. [`loop_read_pytorch`](src/test_pytorch.py#L45) Reads the raw
    dataset, without decoding the images, via the PyTorch Dataloader,
    with a configurable number of workers.
-3. [`loop_read_tensors`](src/test_pytorch.py:L64) Reads the dataset
+3. [`loop_read_tensors`](src/test_pytorch.py#L64) Reads the dataset
    via the PyTorch Dataloader, with a configurable number of workers,
    decodes the images and applies some standard preprocessing steps
    for the ImageNet dataset (i.e., resize, crop, flip and normalize).
@@ -93,12 +93,12 @@ python3 test_pytorch.py s3://imagenet/train \
 We have implemented two simple stress tests that try to read as many
 images as possible from the DeepLake dataset.
 
-1. [`loop_read_raw`](src/test_tensorflow.py:L39) Reads the raw dataset,
+1. [`loop_read_raw`](src/test_tensorflow.py#L39) Reads the raw dataset,
    without decoding the images, straight from the DeepLake dataset
    variable (same as the PyTorch test).
-2. [`loop_read_tensorflow`](src/test_tensorflow.py:L45) Reads the raw
+2. [`loop_read_tensorflow`](src/test_tensorflow.py#L45) Reads the raw
    dataset, without decoding the images, via the Tensorflow Dataloader.
-3. [`loop_read_tensors`](src/test_tensorflow.py:L60) Reads the dataset
+3. [`loop_read_tensors`](src/test_tensorflow.py#L60) Reads the dataset
    via the Tensorflow Dataloader, decodes the images and applies some
    standard preprocessing steps for the ImageNet dataset (i.e., random
    crop, flip and normalize).
