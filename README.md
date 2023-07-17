@@ -98,7 +98,7 @@ images as possible from the DeepLake dataset.
    variable (same as the PyTorch test).
 2. [`loop_read_tensorflow`](src/test_tensorflow.py#L45) Reads the raw
    dataset, without decoding the images, via the Tensorflow Dataloader.
-3. [`loop_read_tensors`](src/test_tensorflow.py#L60) Reads the dataset
+3. [`loop_read_tensors`](src/test_tensorflow.py#L65) Reads the dataset
    via the Tensorflow Dataloader, decodes the images and applies some
    standard preprocessing steps for the ImageNet dataset (i.e., random
    crop, flip and normalize).
