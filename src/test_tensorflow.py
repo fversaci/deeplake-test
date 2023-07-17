@@ -14,8 +14,7 @@
 
 from clize import run
 import deeplake
-from tqdm import tqdm, trange
-from IPython import embed
+from tqdm import tqdm
 import tensorflow as tf
 
 
@@ -46,10 +45,38 @@ def loop_read_raw(ds, epochs=3):
 def loop_read_tensorflow(
     ds,
     epochs=3,
+    shuffle=False,
 ):
     bs = 512
     sz = len(ds) // bs
-    dt = ds.tensorflow(tobytes=True).batch(bs).prefetch(tf.data.AUTOTUNE)
+    dt = ds.tensorflow(tobytes=True)
+    if shuffle:
+        dt = dt.shuffle(8192, reshuffle_each_iteration=True)
+    dt = dt.batch(bs).prefetch(tf.data.AUTOTUNE)
+
+    for _ in range(epochs):
+        cow = 0
+        for x in tqdm(dt, total=sz):
+            cow += 1
+            if cow == sz:
+                break
+
+
+def loop_read_tensors(
+    ds,
+    epochs=3,
+    shuffle=False,
+):
+    bs = 512
+    sz = len(ds) // bs
+    dt = ds.tensorflow(tobytes=False)
+    dt = dt.map(lambda x: x["images"])
+    dt = dt.map(lambda x: tf.image.random_crop(x, (224, 224, 3)))
+    dt = dt.map(lambda x: tf.image.random_flip_left_right(x))
+    dt = dt.map(lambda x: tf.image.per_image_standardization(x))
+    if shuffle:
+        dt = dt.shuffle(8192, reshuffle_each_iteration=True)
+    dt = dt.batch(bs).prefetch(tf.data.AUTOTUNE)
     for _ in range(epochs):
         cow = 0
         for x in tqdm(dt, total=sz):
@@ -73,9 +100,15 @@ def test(
         aws_secret_access_key=aws_secret_access_key,
         endpoint_url=endpoint_url,
     )
-    # loop_read_raw(ds, epochs=epochs)
+    loop_read_raw(ds, epochs=epochs)
     loop_read_tensorflow(
         ds,
+        shuffle=shuffle,
+        epochs=epochs,
+    )
+    loop_read_tensors(
+        ds,
+        shuffle=shuffle,
         epochs=epochs,
     )
 
