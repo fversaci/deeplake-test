@@ -71,7 +71,7 @@ def loop_read_tensors(
     sz = len(ds) // bs
     dt = ds.tensorflow(tobytes=False)
     dt = dt.map(lambda x: x["images"])
-    dt = dt.map(lambda x: tf.image.resize(x, (300, 300, 3)))
+    dt = dt.map(lambda x: tf.image.resize(x, (300, 300)))
     dt = dt.map(lambda x: tf.image.random_crop(x, (224, 224, 3)))
     dt = dt.map(lambda x: tf.image.random_flip_left_right(x))
     dt = dt.map(lambda x: tf.image.per_image_standardization(x))
