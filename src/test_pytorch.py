@@ -83,7 +83,7 @@ def loop_read_tensors(
         num_workers=num_workers,
         transform={"images": tform, "labels": None},
         shuffle=shuffle,
-        decode_method={"images": "numpy"},
+        decode_method={"images": "pil"},
     )
     for _ in range(epochs):
         for x in tqdm(dp):
