@@ -32,6 +32,7 @@ def open_dataset(
         }
     else:
         creds = None
+
     ds = deeplake.load(src, creds=creds)
     return ds
 
@@ -90,6 +91,40 @@ def loop_read_tensors(
             d = x["images"]
 
 
+def loop_read_enterprise(
+    ds,
+    epochs=3,
+    num_workers=8,
+    shuffle=False,
+):
+    tform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Lambda(lambda x: x.repeat(int(3 / x.shape[0]), 1, 1)),
+            transforms.RandomResizedCrop(
+                224, scale=(0.1, 1.0), ratio=(0.8, 1.25), antialias=True
+            ),
+            transforms.RandomHorizontalFlip(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
+    dp = (
+        ds.dataloader()
+        .transform({"images": tform, "labels": None})
+        .batch(512)
+        .shuffle(shuffle)
+        .pytorch(
+            num_workers=8,
+            decode_method={"images": "pil"},
+            prefetch_factor=4,
+            num_threads=4,
+        )
+    )
+    for _ in range(epochs):
+        for x in tqdm(dp):
+            d = x["images"]
+
+
 def test(
     src,
     *,
@@ -115,6 +150,12 @@ def test(
         epochs=epochs,
     )
     loop_read_tensors(
+        ds,
+        num_workers=tens_workers,
+        shuffle=shuffle,
+        epochs=epochs,
+    )
+    loop_read_enterprise(
         ds,
         num_workers=tens_workers,
         shuffle=shuffle,
