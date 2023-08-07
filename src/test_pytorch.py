@@ -16,6 +16,7 @@ from clize import run
 import deeplake
 from torchvision import transforms
 from tqdm import tqdm
+import torch
 
 
 def open_dataset(
@@ -100,14 +101,15 @@ def loop_read_enterprise(
     tform = transforms.Compose(
         [
             transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.repeat(int(3 / x.shape[0]), 1, 1)),
-            transforms.RandomResizedCrop(
-                224, scale=(0.1, 1.0), ratio=(0.8, 1.25), antialias=True
-            ),
-            transforms.RandomHorizontalFlip(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            # transforms.Lambda(lambda x: x.repeat(int(3 / x.shape[0]), 1, 1)),
+            # transforms.RandomResizedCrop(
+            #     224, scale=(0.1, 1.0), ratio=(0.8, 1.25), antialias=True
+            # ),
+            # transforms.RandomHorizontalFlip(),
+            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
     )
+    torch.distributed.init_process_group(backend="nccl", init_method="env://")
     dp = (
         ds.dataloader()
         .transform({"images": tform, "labels": None})
@@ -118,6 +120,7 @@ def loop_read_enterprise(
             decode_method={"images": "pil"},
             prefetch_factor=4,
             num_threads=4,
+            # distributed=True,
         )
     )
     for _ in range(epochs):
@@ -142,19 +145,19 @@ def test(
         aws_secret_access_key=aws_secret_access_key,
         endpoint_url=endpoint_url,
     )
-    loop_read_raw(ds, epochs=epochs)
-    loop_read_pytorch(
-        ds,
-        num_workers=torch_workers,
-        shuffle=shuffle,
-        epochs=epochs,
-    )
-    loop_read_tensors(
-        ds,
-        num_workers=tens_workers,
-        shuffle=shuffle,
-        epochs=epochs,
-    )
+    # loop_read_raw(ds, epochs=epochs)
+    # loop_read_pytorch(
+    #     ds,
+    #     num_workers=torch_workers,
+    #     shuffle=shuffle,
+    #     epochs=epochs,
+    # )
+    # loop_read_tensors(
+    #     ds,
+    #     num_workers=tens_workers,
+    #     shuffle=shuffle,
+    #     epochs=epochs,
+    # )
     loop_read_enterprise(
         ds,
         num_workers=tens_workers,

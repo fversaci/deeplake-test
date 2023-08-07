@@ -43,18 +43,18 @@ RUN \
 ########################################################################
 # Download the Imagenette dataset
 ########################################################################
-WORKDIR /tmp
-RUN \
-    wget -nv 'https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-320.tgz' \
-    && tar xfz 'imagenette2-320.tgz' \
-    && rm 'imagenette2-320.tgz'
+# WORKDIR /tmp
+# RUN \
+#     wget -nv 'https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-320.tgz' \
+#     && tar xfz 'imagenette2-320.tgz' \
+#     && rm 'imagenette2-320.tgz'
 
 ########################################################################
 # install deeplake + some other python libraries
 ########################################################################
 RUN \
     pip3 install --upgrade --no-cache matplotlib pandas clize \
-      opencv-python tqdm tifffile pyyaml deeplake
+      opencv-python tqdm tifffile pyyaml "deeplake[enterprise]"
 
 ########################################################################
 # run as user
