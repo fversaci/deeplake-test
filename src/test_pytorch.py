@@ -101,24 +101,24 @@ def loop_read_enterprise(
     tform = transforms.Compose(
         [
             transforms.ToTensor(),
-            # transforms.Lambda(lambda x: x.repeat(int(3 / x.shape[0]), 1, 1)),
-            # transforms.RandomResizedCrop(
-            #     224, scale=(0.1, 1.0), ratio=(0.8, 1.25), antialias=True
-            # ),
-            # transforms.RandomHorizontalFlip(),
-            # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            transforms.Lambda(lambda x: x.repeat(int(3 / x.shape[0]), 1, 1)),
+            transforms.RandomResizedCrop(
+                224, scale=(0.1, 1.0), ratio=(0.8, 1.25), antialias=True
+            ),
+            transforms.RandomHorizontalFlip(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
     )
-    torch.distributed.init_process_group(backend="nccl", init_method="env://")
+    # torch.distributed.init_process_group(backend="nccl", init_method="env://")
+    # torch.distributed.init_process_group(backend="mpi", init_method="env://")
     dp = (
         ds.dataloader()
         .transform({"images": tform, "labels": None})
-        .batch(512)
+        .batch(8)
         .shuffle(shuffle)
         .pytorch(
-            num_workers=8,
             decode_method={"images": "pil"},
-            prefetch_factor=4,
+            prefetch_factor=8,
             num_threads=4,
             # distributed=True,
         )
