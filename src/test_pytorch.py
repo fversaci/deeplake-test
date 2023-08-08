@@ -16,6 +16,7 @@ from clize import run
 import deeplake
 from torchvision import transforms
 from tqdm import tqdm
+from IPython import embed
 import torch
 
 
@@ -95,8 +96,9 @@ def loop_read_tensors(
 def loop_read_enterprise(
     ds,
     epochs=3,
-    num_workers=8,
     shuffle=False,
+    distributed=False,
+    backend="gloo",
 ):
     tform = transforms.Compose(
         [
@@ -109,18 +111,18 @@ def loop_read_enterprise(
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
     )
-    # torch.distributed.init_process_group(backend="nccl", init_method="env://")
-    # torch.distributed.init_process_group(backend="mpi", init_method="env://")
+    if distributed:
+        torch.distributed.init_process_group(backend=backend, init_method="env://")
     dp = (
         ds.dataloader()
         .transform({"images": tform, "labels": None})
-        .batch(8)
+        .batch(16)
         .shuffle(shuffle)
         .pytorch(
             decode_method={"images": "pil"},
-            prefetch_factor=8,
+            prefetch_factor=4,
             num_threads=4,
-            # distributed=True,
+            distributed=distributed,
         )
     )
     for _ in range(epochs):
@@ -138,6 +140,8 @@ def test(
     tens_workers=32,
     torch_workers=8,
     shuffle=False,
+    distributed=False,
+    backend="gloo",
 ):
     ds = open_dataset(
         src=src,
@@ -160,9 +164,10 @@ def test(
     # )
     loop_read_enterprise(
         ds,
-        num_workers=tens_workers,
         shuffle=shuffle,
         epochs=epochs,
+        distributed=distributed,
+        backend=backend,
     )
 
 
