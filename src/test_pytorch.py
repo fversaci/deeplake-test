@@ -121,7 +121,6 @@ def loop_read_enterprise(
         .pytorch(
             decode_method={"images": "pil"},
             prefetch_factor=4,
-            num_threads=4,
             distributed=distributed,
         )
     )
