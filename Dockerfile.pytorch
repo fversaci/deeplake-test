@@ -52,6 +52,7 @@ RUN \
 ########################################################################
 # install deeplake + some other python libraries
 ########################################################################
+ARG CACHEBUST=1
 RUN \
     pip3 install --upgrade --no-cache matplotlib pandas clize \
       opencv-python tqdm tifffile pyyaml "deeplake[enterprise]"

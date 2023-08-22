@@ -116,12 +116,13 @@ def loop_read_enterprise(
     dp = (
         ds.dataloader()
         .transform({"images": tform, "labels": None})
-        .batch(16)
+        .batch(512)
         .shuffle(shuffle)
         .pytorch(
             decode_method={"images": "pil"},
             prefetch_factor=4,
             distributed=distributed,
+            # num_workers=2,
         )
     )
     for _ in range(epochs):
