@@ -11,6 +11,7 @@ import time
 import warnings
 from enum import Enum
 
+from IPython import embed
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
@@ -25,6 +26,9 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Subset
+import torch.nn.functional as F
+
+import deeplake
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
@@ -82,6 +86,12 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
 parser.add_argument('--dummy', action='store_true', help="use fake data to benchmark")
+parser.add_argument('--aws-access-key-id', help='', default=None)
+parser.add_argument('--aws-secret-access-key', help='', default=None)
+parser.add_argument('--endpoint-url', help='', default=None)
+parser.add_argument('--train-src', help='', default='hub://activeloop/imagenet-train')
+parser.add_argument('--val-src', help='', default='hub://activeloop/imagenet-val')
+
 
 best_acc1 = 0
 
@@ -123,6 +133,25 @@ def main():
     else:
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
+
+
+def open_dataset(
+    src,
+    aws_access_key_id,
+    aws_secret_access_key,
+    endpoint_url,
+):
+    if aws_access_key_id and aws_secret_access_key and endpoint_url:
+        creds = {
+            "aws_access_key_id": aws_access_key_id,
+            "aws_secret_access_key": aws_secret_access_key,
+            "endpoint_url": endpoint_url,
+        }
+    else:
+        creds = None
+
+    ds = deeplake.load(src, creds=creds)
+    return ds
 
 
 def main_worker(gpu, ngpus_per_node, args):
@@ -232,44 +261,74 @@ def main_worker(gpu, ngpus_per_node, args):
         print("=> Dummy data is used!")
         train_dataset = datasets.FakeData(1281167, (3, 224, 224), 1000, transforms.ToTensor())
         val_dataset = datasets.FakeData(50000, (3, 224, 224), 1000, transforms.ToTensor())
-    else:
-        traindir = os.path.join(args.data, 'train')
-        valdir = os.path.join(args.data, 'val')
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
 
-        train_dataset = datasets.ImageFolder(
-            traindir,
-            transforms.Compose([
-                transforms.RandomResizedCrop(224),
+        if args.distributed:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+            val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False, drop_last=True)
+        else:
+            train_sampler = None
+            val_sampler = None
+
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+            num_workers=args.workers, pin_memory=True, sampler=train_sampler)
+
+        val_loader = torch.utils.data.DataLoader(
+            val_dataset, batch_size=args.batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True, sampler=val_sampler)
+    else:
+        ds_train = open_dataset(
+            src=args.train_src,
+            aws_access_key_id=args.aws_access_key_id,
+            aws_secret_access_key=args.aws_secret_access_key,
+            endpoint_url=args.endpoint_url,
+        )
+    
+        ds_val = open_dataset(
+            src=args.val_src,
+            aws_access_key_id=args.aws_access_key_id,
+            aws_secret_access_key=args.aws_secret_access_key,
+            endpoint_url=args.endpoint_url,
+        )
+    
+        tform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Lambda(lambda x: x.repeat(int(3 / x.shape[0]), 1, 1)),
+                transforms.RandomResizedCrop(
+                    224, scale=(0.1, 1.0), ratio=(0.8, 1.25), antialias=True
+                ),
                 transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                normalize,
-            ]))
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
+        
+        train_loader = (
+            ds_train.dataloader()
+            .transform({"images": tform, "labels": None})
+            .batch(args.batch_size)
+            .shuffle(False)
+            .pytorch(
+                decode_method={"images": "pil"},
+                prefetch_factor=4,
+                distributed=args.distributed,
+                # num_workers=2,
+            )
+        )
 
-        val_dataset = datasets.ImageFolder(
-            valdir,
-            transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                normalize,
-            ]))
-
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-        val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False, drop_last=True)
-    else:
-        train_sampler = None
-        val_sampler = None
-
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
-
-    val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True, sampler=val_sampler)
+        val_loader = (
+            ds_val.dataloader()
+            .transform({"images": None, "labels": None})
+            .batch(args.batch_size)
+            .shuffle(False)
+            .pytorch(
+                decode_method={"images": "pil"},
+                prefetch_factor=4,
+                distributed=args.distributed,
+                # num_workers=2,
+            )
+        )
+    
 
     if args.evaluate:
         validate(val_loader, model, criterion, args)
@@ -286,7 +345,7 @@ def main_worker(gpu, ngpus_per_node, args):
         acc1 = validate(val_loader, model, criterion, args)
         
         scheduler.step()
-        
+       
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
@@ -318,7 +377,10 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
     model.train()
 
     end = time.time()
-    for i, (images, target) in enumerate(train_loader):
+    for i, data in enumerate(train_loader):
+        images = data["images"]
+        target = data["labels"].squeeze()
+        #target = F.one_hot(target, num_classes=1000)
         # measure data loading time
         data_time.update(time.time() - end)
 
@@ -328,6 +390,7 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
 
         # compute output
         output = model(images)
+        
         loss = criterion(output, target)
 
         # measure accuracy and record loss
@@ -354,7 +417,11 @@ def validate(val_loader, model, criterion, args):
     def run_validate(loader, base_progress=0):
         with torch.no_grad():
             end = time.time()
-            for i, (images, target) in enumerate(loader):
+            for i, data in enumerate(loader):
+                images = data["images"]
+                target = data["labels"].squeeze()
+                #target = F.one_hot(target, num_classes=1000)
+                # measure data loading time
                 i = base_progress + i
                 if args.gpu is not None and torch.cuda.is_available():
                     images = images.cuda(args.gpu, non_blocking=True)
