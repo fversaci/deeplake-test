@@ -64,7 +64,7 @@ def loop_read_enterprise(
     dp = (
         ds.dataloader()
         .transform({"images": tform, "labels": None})
-        .batch(16)
+        .batch(2)
         .shuffle(shuffle)
         .pytorch(
             decode_method={"images": "pil"},
@@ -80,7 +80,7 @@ def loop_read_enterprise(
         for x in dp:
             d = x["images"]
             l = x["labels"]
-            print(f"tqdm rank: {lr}, label={l}")
+            print(f"tqdm rank: {lr}, label={l.shape}, data={d.shape}")
     
     pbar.close()
 
