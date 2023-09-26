@@ -63,6 +63,7 @@ class ImageNetLightningModel(LightningModule):
         weight_decay: float = 1e-4,
         batch_size: int = 4,
         workers: int = 0,
+        num_threads:int = None, 
         **kwargs,
     ):
         super().__init__()
@@ -75,13 +76,14 @@ class ImageNetLightningModel(LightningModule):
         # self.data_path = data_path
         self.batch_size = batch_size
         self.workers = workers
+        self.num_threads = num_threads
         print('*' * 80)
         print(f'*************** Loading model {self.arch}')
         print('*' * 80)
         self.model = models.__dict__[self.arch](pretrained=self.pretrained)
         
         self.train_dataset = deeplake.load(
-            "hub://activeloop/imagenet-train", read_only=True
+            "hub://activeloop/imagenet-val", read_only=True
         )
         self.val_dataset = deeplake.load(
             "hub://activeloop/imagenet-val", read_only=True
@@ -158,7 +160,7 @@ class ImageNetLightningModel(LightningModule):
             .transform({"images": self.train_transform, "labels": None}) \
             .batch(self.batch_size, drop_last=True) \
             .shuffle(False) \
-            .pytorch(num_workers=self.workers,
+            .pytorch(num_workers=self.workers, num_threads=self.num_threads,
                      decode_method = {'images': 'pil'},
                      distributed=True)
         return train_loader
@@ -167,7 +169,7 @@ class ImageNetLightningModel(LightningModule):
         val_loader = self.train_dataset.dataloader() \
             .transform({"images": self.val_transform, "labels": None}) \
             .batch(self.batch_size, drop_last=True) \
-            .pytorch(num_workers=self.workers,
+            .pytorch(num_workers=self.workers, num_threads=self.num_threads,
                      decode_method = {'images': 'pil'},
                      distributed=True)
         return val_loader
@@ -191,6 +193,12 @@ class ImageNetLightningModel(LightningModule):
         )
         parser.add_argument(
             "-j", "--workers", default=10, type=int, metavar="N", help="number of data loading workers (default: 4)"
+        )
+        parser.add_argument(
+            "-t", "--num-threads", default=None, type=int, metavar="T", help="number of threads used to fetch and decompress images (default: Automatically determined)"
+        )
+        parser.add_argument(
+            "-g", "--num-gpu", default=1, type=int, metavar="G", help="number of gpus (default: 1)"
         )
         parser.add_argument(
             "-b",
@@ -230,7 +238,7 @@ def main(args: Namespace) -> None:
     #     args.workers = int(args.workers / max(1, args.gpus))
    
     model = ImageNetLightningModel(**vars(args))
-    trainer = pl.Trainer(max_epochs=10,  accelerator="gpu", devices=2, strategy='ddp')
+    trainer = pl.Trainer(max_epochs=10,  accelerator="gpu", devices=args.num_gpu, strategy='ddp')
     # pl.Trainer.from_argparse_args(args)
     if args.evaluate:
         trainer.test(model)
