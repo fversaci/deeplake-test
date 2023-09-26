@@ -42,7 +42,9 @@ parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     help='model architecture: ' +
                         ' | '.join(model_names) +
                         ' (default: resnet18)')
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
+                    help='number of data loading workers (default: 4)')
+parser.add_argument('-t', '--num-threads', default=None, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
                     help='number of total epochs to run')
@@ -303,6 +305,16 @@ def main_worker(gpu, ngpus_per_node, args):
             ]
         )
         
+        vform = transforms.Compose(
+            [
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Lambda(lambda x: x.repeat(int(3 / x.shape[0]), 1, 1)),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
+        
         train_loader = (
             ds_train.dataloader()
             .transform({"images": tform, "labels": None})
@@ -310,22 +322,24 @@ def main_worker(gpu, ngpus_per_node, args):
             .shuffle(False)
             .pytorch(
                 decode_method={"images": "pil"},
-                prefetch_factor=4,
+                prefetch_factor=8,
                 distributed=args.distributed,
-                # num_workers=2,
+                num_workers=args.workers,
+                num_threads=args.num_threads,
             )
         )
 
         val_loader = (
             ds_val.dataloader()
-            .transform({"images": None, "labels": None})
+            .transform({"images": vform, "labels": None})
             .batch(args.batch_size)
             .shuffle(False)
             .pytorch(
                 decode_method={"images": "pil"},
-                prefetch_factor=4,
+                prefetch_factor=8,
                 distributed=args.distributed,
-                # num_workers=2,
+                num_workers=args.workers,
+                num_threads=args.num_threads,
             )
         )
     
