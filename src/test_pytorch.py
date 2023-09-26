@@ -52,7 +52,7 @@ def loop_read_pytorch(
     shuffle=False,
 ):
     dp = ds.pytorch(
-        batch_size=512,
+        batch_size=256,
         num_workers=num_workers,
         transform={"images": None, "labels": None},
         decode_method={"images": "tobytes"},  # do not decode
@@ -116,13 +116,13 @@ def loop_read_enterprise(
     dp = (
         ds.dataloader()
         .transform({"images": tform, "labels": None})
-        .batch(512)
+        .batch(256)
         .shuffle(shuffle)
         .pytorch(
             decode_method={"images": "pil"},
             prefetch_factor=4,
             distributed=distributed,
-            # num_workers=2,
+            num_workers=8,
         )
     )
     for _ in range(epochs):
