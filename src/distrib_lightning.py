@@ -64,6 +64,7 @@ class ImageNetLightningModel(LightningModule):
         batch_size: int = 4,
         workers: int = 0,
         num_threads:int = None, 
+        prefetch_factor:int = 2,
         **kwargs,
     ):
         super().__init__()
@@ -77,6 +78,7 @@ class ImageNetLightningModel(LightningModule):
         self.batch_size = batch_size
         self.workers = workers
         self.num_threads = num_threads
+        self.prefetch_factor = prefetch_factor
         print('*' * 80)
         print(f'*************** Loading model {self.arch}')
         print('*' * 80)
@@ -160,7 +162,9 @@ class ImageNetLightningModel(LightningModule):
             .transform({"images": self.train_transform, "labels": None}) \
             .batch(self.batch_size, drop_last=True) \
             .shuffle(False) \
-            .pytorch(num_workers=self.workers, num_threads=self.num_threads,
+            .pytorch(num_workers=self.workers, 
+                     num_threads=self.num_threads,
+                     prefetch_factor=self.prefetch_factor,
                      decode_method = {'images': 'pil'},
                      distributed=True)
         return train_loader
@@ -169,7 +173,9 @@ class ImageNetLightningModel(LightningModule):
         val_loader = self.train_dataset.dataloader() \
             .transform({"images": self.val_transform, "labels": None}) \
             .batch(self.batch_size, drop_last=True) \
-            .pytorch(num_workers=self.workers, num_threads=self.num_threads,
+            .pytorch(num_workers=self.workers, 
+                     num_threads=self.num_threads,
+                     prefetch_factor=self.prefetch_factor,
                      decode_method = {'images': 'pil'},
                      distributed=True)
         return val_loader
@@ -195,7 +201,10 @@ class ImageNetLightningModel(LightningModule):
             "-j", "--workers", default=10, type=int, metavar="N", help="number of data loading workers (default: 4)"
         )
         parser.add_argument(
-            "-t", "--num-threads", default=None, type=int, metavar="T", help="number of threads used to fetch and decompress images (default: Automatically determined)"
+            "-t", "--num-threads", default=None, type=int, metavar="N", help="number of threads used to fetch and decompress images (default: Automatically determined)"
+        )
+        parser.add_argument(
+            "-p", "--prefetch-factor", default=2, type=int, metavar="N", help="Number of batches to transform and collate in advance per worker. Defaults to 2"
         )
         parser.add_argument(
             "-g", "--num-gpu", default=1, type=int, metavar="G", help="number of gpus (default: 1)"
