@@ -46,6 +46,8 @@ parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('-t', '--num-threads', default=None, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
+parser.add_argument('-f', '--prefetch-factor', default=2, type=int, metavar='N',
+                    help='Number of batches loaded in advance by each worker (default: 2)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
@@ -322,7 +324,7 @@ def main_worker(gpu, ngpus_per_node, args):
             .shuffle(False)
             .pytorch(
                 decode_method={"images": "pil"},
-                prefetch_factor=8,
+                prefetch_factor=args.prefetch_factor,
                 distributed=args.distributed,
                 num_workers=args.workers,
                 num_threads=args.num_threads,
@@ -336,7 +338,7 @@ def main_worker(gpu, ngpus_per_node, args):
             .shuffle(False)
             .pytorch(
                 decode_method={"images": "pil"},
-                prefetch_factor=8,
+                prefetch_factor=args.prefetch_factor,
                 distributed=args.distributed,
                 num_workers=args.workers,
                 num_threads=args.num_threads,
